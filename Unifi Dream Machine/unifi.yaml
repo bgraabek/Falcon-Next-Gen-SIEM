@@ -1,0 +1,157 @@
+name: unifi
+fieldsToBeRemovedBeforeParsing: []
+testCases:
+- event:
+    rawString: '<14>Nov 25 19:21:39 pandora CEF:1|Ubiquiti|UniFi Network|8.6.9|client-6744ce43a63543500fac2d86|Joe
+      roamed from unifi1 to unifi2. Connection Info: Ch. 1 (2.4 GHz, 20 MHz), -65
+      dBm. Roaming Decision: -77 dBm to -65 dBm.|Medium'
+- event:
+    rawString: 'Oct  8 19:02:51 pandora CEF: 1|Ubiquiti|UniFi Network|8.5.6|security_detections-670581db40470844b358b50e|IPS
+      Alert 1: Attempted Administrator Privilege Gain. Signature ET EXPLOIT HackingTrio
+      UA (Hello, World). From: 103.199.180.56:60962, to: 172.16.1.1:80, protocol:
+      TCP|High|signature_type=ET signature_id=2025576'
+- event:
+    rawString: 'Oct  3 19:20:17 pandora CEF: 1|Ubiquiti|UniFi Network|8.5.6|client-66feee7140470844b356dcc1|idrac
+      disconnected from Default on pandora Port 5. Time Connected: 1d 7h. Data Used:
+      6.64 KB (up) / 559.32 KB (down).|Medium'
+- event:
+    rawString: 'Oct  2 23:59:37 pandora CEF: 1|Ubiquiti|UniFi Network|8.5.5|security_detections-66fdde69d0e11f7cc0f5e3ca|IPS
+      Alert 2: Misc Attack. Signature ET DROP Dshield Block Listed Source group 1.
+      From: 205.210.31.203:53367, to: 172.16.1.1:80, protocol: TCP|Medium|signature_type=ET
+      signature_id=2402000'
+- event:
+    rawString: 'Sep 13 17:07:14 pandora pandora dnsmasq-dhcp[1419336]: DHCPACK(br0)
+      172.16.1.22 6c:0f:61:45:d8:68 Hypervolt'
+- event:
+    rawString: 'Jul 18 21:37:26 pandora [WAN_LOCAL-D-2147483647] DESCR="[WAN_LOCAL]Block
+      All Other Tra" IN=eth8 OUT= MAC=74:ac:b9:45:60:75:c4:c6:03:c3:d0:1a:08:00 SRC=91.240.118.215
+      DST=86.19.35.46 LEN=40 TOS=00 PREC=0x00 TTL=242 ID=52330 PROTO=TCP SPT=40936
+      DPT=12620 SEQ=4260748808 ACK=0 WINDOW=1024 SYN URGP=0 MARK=1a0000 '
+- event:
+    rawString: 'Jul 18 21:17:52 pandora pandora kernel: TOR BLOCK: IN=eth8 OUT= MAC=74:ac:b9:45:60:75:c4:c6:03:c3:d0:1a:08:00
+      SRC=185.132.53.12 DST=86.19.35.46 LEN=40 TOS=0x00 PREC=0x00 TTL=247 ID=54321
+      PROTO=TCP SPT=35220 DPT=19999 WINDOW=65535 RES=0x00 SYN URGP=0 MARK=0x1a0000 '
+- event:
+    rawString: 'Jun 29 16:55:41 pandora pandora kernel: ALIEN BLOCK: IN=eth8 OUT=br0
+      MAC=74:ac:b9:45:60:75:c4:c6:03:c3:d0:1a:08:00 SRC=120.85.114.64 DST=172.16.1.1
+      LEN=60 TOS=0x00 PREC=0x00 TTL=48 ID=51040 DF PROTO=TCP SPT=25883 DPT=80 WINDOW=14520
+      RES=0x00 SYN URGP=0 MARK=0x1a0000 '
+- event:
+    rawString: Jul 18 15:20:39 pandora [PREROUTING-DNAT-8] DESCR="PortForward DNAT
+      [ssh]" IN=eth8 OUT= MAC=74:ac:b9:45:60:75:c4:c6:03:c3:d0:1a:08:00 SRC=118.195.186.43
+      DST=86.19.35.57 LEN=60 TOS=00 PREC=0x60 TTL=46 ID=29271 DF PROTO=TCP SPT=38520
+      DPT=22 SEQ=327764758 ACK=0 WINDOW=29200 SYN URGP=0 MARK=1a0000
+$schema: https://schemas.humio.com/parser/v0.3.0
+script: |-
+  // Unifi Dream Machine/Router parser by bjorn.graabek@crowdstrike.com
+  // Tested with UnifiOS v4.1.5, Unifi Network App v8.5.6
+  // In "Settings > System > Integration", enable "Activity Logging (syslog)" by clicking "SIEM Server"
+  // In "Settings > System > Advanced", "Logging Levels" can also be defined, exactly which level creates wich events I've not tested. On my system levels are set to "Verbose"
+
+  /*
+  case {
+    /<(?<priority>\d+)>(?<version>\d+)\s(?<@timestamp>\S+)\s+(?<Vendor.host>\S+)\s+(?<app>\S+)(?<message>.*)/
+    | parseTimestamp("yyyy-MM-dd'T'HH:mm:ss[.SSS]XXX", field=@timestamp);
+    /(<(?<priority>\d+)>)?(?<@timestamp>\S+\s+\S+\s+\S+)\s+(?<Vendor.host>\S+)?\s+(?<app>[^\s\[:]+)?(\[(?<pid>[^\]]+)\]:)?(?<message>.*)/
+    | parseTimestamp("MMM [ ]d HH:mm:ss", field=@timestamp, timezone="Europe/London");
+    /(<(?<priority>\d+)>)?(?<@timestamp>\S+)\s+(?<Vendor.host>\S+)?\s+(?<app>[^\s\[:]+)?(\[(?<pid>\d+)\]:)?(?<message>.*)/
+    | parseTimestamp("yyyy-MM-dd'T'HH:mm:ss[.SSS]XXX", field=@timestamp);
+  } |
+   */
+  /(<(?<priority>\d+)>)?(?<@timestamp>\S+\s+\S+\s+\S+)\s+(?<Vendor.host>\S+)?\s+(?<app>[^\s\[:]+)?(\[(?<pid>[^\]]+)\]:)?(?<message>.*)/ |
+  // temp solution for CEF messages timestamps
+  // When ubiquiti first made CEF messages available, the event timestamps did not match those of other events.
+  // this hack needs to be checked in case ubiquiti have fixed timestamps
+  case {
+      app=CEF | parseTimestamp("MMM [ ]d HH:mm:ss", field=@timestamp, timezone="UTC");
+   * | parseTimestamp("MMM [ ]d HH:mm:ss", field=@timestamp, timezone="Europe/London") } |
+  // end of temp solution
+
+  Vendor:="ubiquiti" | Parser.version:="0.9.0" | Cps.version:="1.0.0" | ecs.version:="8.11.0" |
+  event.kind:="event" |
+
+  regex("\s?(?<log.syslog.appname>.+)\[\d+\]:\s", field=message, strict=false) |
+  // iptables event parsing
+  case {  message="[*]*DESCR*" |
+          kvParse(field=message, as=Vendor, separatorPadding="no") | array:append(array="event.category[]", values=["network"]) | array:append(array="event.type[]", values=["connection"]) |
+          event.module:="iptables" | event.dataset:="iptables.log" |
+          rename(field=[[Vendor.DST, destination.ip], [Vendor.DPT, destination.port]]) | destination.address:=destination.ip |
+          rename(field=[[Vendor.SRC, source.ip], [Vendor.SPT, source.port]]) | source.address:=source.ip |
+          rename(field=[[Vendor.IN, observer.ingress.interface], [Vendor.OUT, observer.egress.interface]]) |
+          network.transport:=lower(Vendor.PROTO) | drop([Vendor.PROTO]) |
+          network.community_id:=communityId(proto=network.transport,sourceip=source.ip,sourceport=source.port,destinationip=destination.ip,destinationport=destination.port) |
+          observer.type:="firewall";
+  * } |
+  // wip
+  case {
+      observer.ingress.interface=br* | network.direction:="outbound";
+      in(field=observer.egress.interface, values=["eth*","wg*"]) | network.direction:="inbound";
+  * | network.direction:="unknown"} |
+  // end of iptables event parsing
+
+  // UDM/UDR devices create certain BLOCK messages (TOR BLOCK, ALIEN BLOCK) not created by iptables, and therefore don't show up with a rule description
+  // If such a BLOCK message appears, make DESCR contain the BLOCK message
+  // Finally set ECS field rule.name
+  case { Vendor.DESCR="[WAN_LOCAL]Block All Other Tra" | Vendor.DESCR:="[WAN_LOCAL]Block All Other Traffic"; * } |
+  regex("kernel: (?<Vendor.DESCR>.+): IN", field=message, strict=false) | rule.name:=Vendor.DESCR | rule.description:=Vendor.DESCR |
+  regex("\[(?<rule.name>.+)\]\sDESCR", field=message, strict=false) |
+
+  case {
+      rule.name="*BLOCK" | array:append(array="event.type[]", values=["denied"]) | event.kind:="event" | event.severity:="50";
+      rule.description="[WAN_LOCAL]Block All Other Traffic" | array:append(array="event.type[]", values=["denied"]) | event.kind:="event" | event.severity:="10";
+      rule.description="no rule description" | array:append(array="event.type[]", values=["denied"]) | event.kind:="event" | event.severity:="10";
+      rule.description="[WAN_IN]Allow*" | array:append(array="event.type[]", values=["allowed"]);
+   * } |
+
+  // cameras
+  case { in(field="Vendor.MAC", values=["76:ac:b9:45:60:6e:74:ac:b9:0b:35:c9:08:00","76:ac:b9:45:60:6e:74:ac:b9:0b:d2:83:08:00","74:ac:b9:0b:d2:83"]) | dropEvent(); * } |
+  // end cameras
+
+  // CEF formatted events
+  case { app=CEF | replace(regex="CEF: 1|CEF:1", with="CEF:0") | replace("\|Medium$", with="\|Medium|") | parseCEF(headerprefix="Vendor.") | regex("(?<Vendor.log_category>\w+)-", field=Vendor.event_class_id); * } |
+  // CEF severity mapping
+  case {
+      Vendor.severity="Very-High" | event.severity:=90 | event.kind:="alert";
+      Vendor.severity="High" | event.severity:=70 | event.kind:="alert";
+      Vendor.severity="Medium" | event.severity:=50 | event.kind:="event";
+      Vendor.severity="Low" | event.severity:=10;
+  * } | drop(Vendor.severity) |
+  // unifi IDS/IPS (suricata)
+  case {
+      cef.event_class_id="security_detections*" |
+      regex(".+\d: (?<rule.category>.+)\. (?<rule.description>.+)\. From: (?<source.ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(?<source.port>\d+).*to: (?<destination.ip>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(?<destination.port>\d+)", field=cef.name, strict=false) |
+      array:append(array="event.category[]", values=["intrusion_detection"]) |
+      rename(field="cef.ext.signature_id", as="rule.id") | // maybe signature id should be combined with cef.ext.signature_type?
+      message:=cef.name |
+      event.module:="suricata";
+  * } |
+
+  // Mitre Att&ck tactics and techniques
+  case {
+      Vendor.DESCR="TOR BLOCK" | threat.tactic.name[0]:="Command and Control" | threat.technique.id[0]:="T1090";
+  * } |
+
+  // DHCP
+  case {
+      log.syslog.appname=dnsmasq-dhcp |
+      regex("dnsmasq-dhcp\[\d+\]:\s(?<Vendor.dhcp.signature>DHCP\S+)\((?<interface.name>\w+)\)\s(?<client.ip>\d+\.\d+\.\d+\.\d+)\s(?<client.mac>.+)", field=message, strict=false); // still work to do here as some events have a host field
+  * } |
+  // template: source.mac := replace(":", with="-", field="source.mac")
+
+  // irrelevant dnsmasq messages
+  case { log.syslog.appname=dnsmasq message="*read /run/dns.conf.d/hosts.d/leases*" | dropEvent(); * } |
+
+  // other events/fields irrelevant for security
+  drop([Vendor.version]) |
+  case { in(field="log.syslog.appname", values=["dpi-flow-stats","syslog-ng","syslog-ng"]) | dropEvent(); * } |
+  case { log.syslog.appname=": mcad: mcad" | dropEvent(); * } |
+  //case { in(field=message, values=["*CRON*","*charon*","*earlyoom*","*getsig*","*gwengined*","*mcad*","*sudo*","*syslog-ng*","*systemd*","*ubios-udapi*","*ulogd*","*wifiman*"]) | dropEvent(); * } |
+tagFields:
+- Cps.version
+- Vendor
+- ecs.version
+- event.dataset
+- event.kind
+- event.module
+- event.outcome
+- observer.type
