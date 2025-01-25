@@ -1,1 +1,1 @@
-# Falcon-Next-Gen-SIEM
+# Falcon-Next-Gen-SIEM and LogScale content
